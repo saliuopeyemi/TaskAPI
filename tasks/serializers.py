@@ -2,6 +2,9 @@ from rest_framework import serializers
 from . import models
 from django.contrib.auth.models import User
 import uuid
+from . import mailer
+from threading import Thread
+from datetime import datetime
 
 
 status = (("Completed","Completed"),("Started","Started"),("Incomplete","Incomplete"))
@@ -82,8 +85,12 @@ class TaskUpdateSerializer(serializers.Serializer):
 	def validate(self,data):
 		request = self.context["request"]
 		task = models.Tasks.objects.filter(id=data["task_id"],owner_id=request.user.id)
-		# if request.user.id != task.first().owner_id:
-		# 	raise serializers.ValidationError("Ownership Error")
+		if data["status"] == "Completed":
+			email = User.objects.filter(id=request.user.id).first().email
+			data["email"] = email
+		else:
+			pass
+
 		if len(task) == 0:
 			raise serializers.ValidationError("Invalid Task ID")
 		else:
@@ -113,6 +120,15 @@ class TaskUpdateSerializer(serializers.Serializer):
 		elif validated_data["description"] != None and validated_data["status"] == None:
 			task.update(description=validated_data["description"])
 
+		if validated_data["status"] == "Completed":
+			task_title = task.first().name
+			subject = "TASK COMPLETED"
+			body = f"Your task {task_title} was completed on {datetime.now()}"
+			email = validated_data["email"]
+			funct = Thread(target=mailer.mail(subject,body,email))
+			funct.start()
+		else:
+			pass
 		output_data = {"status":"Success","Description":validated_data["description"],"Status":validated_data["status"]}
 		return output_data
 

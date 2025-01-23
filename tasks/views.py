@@ -107,6 +107,7 @@ class TaskFilter(APIView):
 			container = []
 			for result in filter_results:
 				item = {
+					"Id":result.id,
 					"Title":result.name,
 					"Description":result.description,
 					"Status":result.status,
