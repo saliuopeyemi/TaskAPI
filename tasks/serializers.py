@@ -1,11 +1,17 @@
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
+from . import scheduler as myscheduler
 from rest_framework import serializers
 from . import models
 from django.contrib.auth.models import User
 import uuid
 from . import mailer
 from threading import Thread
-from datetime import datetime
+from datetime import datetime,timedelta
 
+scheduler = BackgroundScheduler()
+scheduler.start()
 
 status = (("Completed","Completed"),("Started","Started"),("Incomplete","Incomplete"))
 
@@ -121,12 +127,17 @@ class TaskUpdateSerializer(serializers.Serializer):
 			task.update(description=validated_data["description"])
 
 		if validated_data["status"] == "Completed":
+			trigger_time = datetime.now() + timedelta(seconds=20)
 			task_title = task.first().name
 			subject = "TASK COMPLETED"
 			body = f"Your task {task_title} was completed on {datetime.now()}"
 			email = validated_data["email"]
-			funct = Thread(target=mailer.mail(subject,body,email))
-			funct.start()
+			scheduler.add_job(
+			                  myscheduler.email_task,
+			                  trigger=DateTrigger(run_date=trigger_time),
+			                  args=[subject,body,email],
+			                  replace_existing=True
+			                  )
 		else:
 			pass
 		output_data = {"status":"Success","Description":validated_data["description"],"Status":validated_data["status"]}
